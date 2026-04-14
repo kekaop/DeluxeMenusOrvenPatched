@@ -219,6 +219,50 @@ public class Menu {
         closeMenu(plugin, player, close, false);
     }
 
+    public static void changeOpenMenuTitle(final @NotNull Player player, final @NotNull String title) {
+        final Optional<MenuHolder> optionalHolder = getMenuHolder(player);
+        if (optionalHolder.isEmpty()) {
+            return;
+        }
+
+        final MenuHolder holder = optionalHolder.get();
+        final Optional<Menu> optionalMenu = holder.getMenu();
+        if (optionalMenu.isEmpty()) {
+            return;
+        }
+
+        final Menu menu = optionalMenu.get();
+        final String parsedTitle = StringUtils.color(holder.setPlaceholdersAndArguments(title));
+
+        try {
+            player.getOpenInventory().setTitle(parsedTitle);
+            return;
+        } catch (UnsupportedOperationException | IllegalStateException ignored) {
+            // Fallback to reopening with a new inventory title for implementations
+            // that do not support dynamic title updates.
+        }
+
+        final Inventory oldInventory = holder.getInventory();
+
+        final Inventory newInventory;
+        if (menu.options().type() != InventoryType.CHEST) {
+            newInventory = Bukkit.createInventory(holder, menu.options().type(), parsedTitle);
+        } else {
+            newInventory = Bukkit.createInventory(holder, menu.options().size(), parsedTitle);
+        }
+
+        final int copySize = Math.min(oldInventory.getSize(), newInventory.getSize());
+        for (int slot = 0; slot < copySize; slot++) {
+            newInventory.setItem(slot, oldInventory.getItem(slot));
+        }
+
+        holder.setInventory(newInventory);
+
+        menuHolders.remove(holder);
+        player.openInventory(newInventory);
+        menuHolders.add(holder);
+    }
+
     private boolean hasOpenBypassPerm(final @NotNull Player viewer) {
         return viewer.hasPermission("deluxemenus.openrequirement.bypass." + this.options.name())
                 || viewer.hasPermission("deluxemenus.openrequirement.bypass.*");

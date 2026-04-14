@@ -20,6 +20,8 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -90,14 +92,42 @@ public class PlayerListener extends Listener {
         }
 
         final Player player = (Player) event.getPlayer();
+        final Optional<MenuHolder> optionalHolder = Menu.getMenuHolder(player);
 
-        if (Menu.isInMenu(player)) {
-            Menu.closeMenu(plugin, player, false);
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                Menu.cleanInventory(plugin, player);
-                player.updateInventory();
-            }, 3L);
+        if (optionalHolder.isEmpty()) {
+            return;
         }
+
+        final MenuHolder holder = optionalHolder.get();
+        final Optional<Menu> optionalMenu = holder.getMenu();
+
+        if (optionalMenu.isEmpty()) {
+            Menu.closeMenu(plugin, player, false);
+            return;
+        }
+
+        final Menu menu = optionalMenu.get();
+        if (!menu.options().canEscClose()) {
+            final Map<String, String> typedArgs = holder.getTypedArgs() == null ? null : new HashMap<>(holder.getTypedArgs());
+            final Player placeholderPlayer = holder.getPlaceholderPlayer();
+
+            Menu.closeMenu(plugin, player, false);
+
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline() || player.isDead()) {
+                    return;
+                }
+
+                menu.openMenu(player, typedArgs, placeholderPlayer);
+            });
+            return;
+        }
+
+        Menu.closeMenu(plugin, player, false, true);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Menu.cleanInventory(plugin, player);
+            player.updateInventory();
+        }, 3L);
     }
 
     @EventHandler(priority = EventPriority.LOW)

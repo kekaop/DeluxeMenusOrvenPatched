@@ -1,5 +1,6 @@
 menu_title: 'Default Menu'
 open_command: menu
+can-esc-close: true
 size: 9
 open_requirement:
   requirements:

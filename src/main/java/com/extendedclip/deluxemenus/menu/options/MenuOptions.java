@@ -31,6 +31,7 @@ public class MenuOptions {
     private final RequirementList openRequirements;
     private final ClickHandler openHandler;
     private final ClickHandler closeHandler;
+    private final boolean canEscClose;
 
     private MenuOptions(final @NotNull MenuOptionsBuilder builder) {
         this.name = builder.name;
@@ -53,6 +54,7 @@ public class MenuOptions {
         this.openRequirements = builder.openRequirements;
         this.openHandler = builder.openHandler;
         this.closeHandler = builder.closeHandler;
+        this.canEscClose = builder.canEscClose;
     }
 
     public static @NotNull MenuOptionsBuilder builder(final @NotNull String name, final @NotNull String title) {
@@ -131,6 +133,10 @@ public class MenuOptions {
         return Optional.ofNullable(this.closeHandler);
     }
 
+    public boolean canEscClose() {
+        return this.canEscClose;
+    }
+
     public @NotNull MenuOptionsBuilder asBuilder() {
         return MenuOptions.builder(this.name, this.title)
                 .type(this.type)
@@ -148,7 +154,8 @@ public class MenuOptions {
                 .argumentsUsageMessage(this.argumentsUsageMessage)
                 .openRequirements(this.openRequirements)
                 .openHandler(this.openHandler)
-                .closeHandler(this.closeHandler);
+                .closeHandler(this.closeHandler)
+                .canEscClose(this.canEscClose);
     }
 
     public static class MenuOptionsBuilder {
@@ -173,6 +180,7 @@ public class MenuOptions {
         private RequirementList openRequirements;
         private ClickHandler openHandler;
         private ClickHandler closeHandler;
+        private boolean canEscClose = true;
 
         private MenuOptionsBuilder(final @NotNull String name, final @NotNull String title) {
             this.name = name;
@@ -266,6 +274,11 @@ public class MenuOptions {
 
         public MenuOptionsBuilder closeHandler(final @Nullable ClickHandler closeHandler) {
             this.closeHandler = closeHandler;
+            return this;
+        }
+
+        public MenuOptionsBuilder canEscClose(final boolean canEscClose) {
+            this.canEscClose = canEscClose;
             return this;
         }
 

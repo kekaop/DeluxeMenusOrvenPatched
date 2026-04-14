@@ -546,6 +546,8 @@ public class DeluxeMenusConfig {
             builder.closeHandler(getClickHandler(c, pre + "close_commands"));
         }
 
+        builder.canEscClose(c.getBoolean(pre + "can-esc-close", true));
+
         final int updateInterval = c.getInt(pre + "update_interval", 10);
         builder.updateInterval(updateInterval > 0 ? updateInterval : 10);
 

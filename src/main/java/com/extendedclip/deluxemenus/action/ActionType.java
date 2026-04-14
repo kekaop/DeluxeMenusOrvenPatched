@@ -32,6 +32,7 @@ public enum ActionType {
   CONNECT("[connect]", "Connect to the specified bungee server", "- '[connect] <serverName>'"),
   CLOSE("[close]", "Close the viewers open menu", "- '[close]"),
   REFRESH("[refresh]", "Refresh items in the current menu view", "- '[refresh]"),
+  TITLE("[title]", "Change the title of the currently open menu", "- '[title] <new title>'"),
   BROADCAST_SOUND("[broadcastsound]", "Broadcast a sound to the server", "- '[broadcastsound]"),
   BROADCAST_RAW_SOUND("[broadcastrawsound]", "Broadcast a RAW sound to the server", "- '[broadcastrawsound]"),
   BROADCAST_WORLD_SOUND("[broadcastsoundworld]", "Broadcast a sound to the player's world", "- '[broadcastsoundworld]"),

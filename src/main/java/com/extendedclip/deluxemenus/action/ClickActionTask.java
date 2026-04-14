@@ -297,6 +297,28 @@ public class ClickActionTask extends BukkitRunnable {
                 holder.get().refreshMenu();
                 break;
 
+            case TITLE:
+                if (holder.isEmpty()) {
+                    plugin.debug(
+                            DebugLevel.MEDIUM,
+                            Level.WARNING,
+                            player.getName() + " does not have menu open! Could not change menu title!"
+                    );
+                    break;
+                }
+
+                if (executable.isBlank()) {
+                    plugin.debug(
+                            DebugLevel.MEDIUM,
+                            Level.WARNING,
+                            "Title action requires a non-empty title value."
+                    );
+                    break;
+                }
+
+                Menu.changeOpenMenuTitle(player, executable);
+                break;
+
             case TAKE_MONEY:
                 if (plugin.getVault() == null || !plugin.getVault().hooked()) {
                     plugin.debug(DebugLevel.HIGHEST, Level.WARNING, "Vault not hooked! Cannot take money!");
