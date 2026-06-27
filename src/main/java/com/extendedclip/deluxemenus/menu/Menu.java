@@ -308,6 +308,71 @@ public class Menu {
         return true;
     }
 
+    public @NotNull Set<MenuItem> getActiveItems(final @NotNull MenuHolder holder) {
+        final Map<Integer, MenuItem> activeItemsBySlot = new HashMap<>();
+        final Map<Integer, Integer> activePrioritiesBySlot = new HashMap<>();
+
+        holder.clearItemSlots();
+
+        for (Entry<Integer, TreeMap<Integer, MenuItem>> entry : items.entrySet()) {
+            for (MenuItem item : entry.getValue().values()) {
+                final int slot = this.resolveItemSlot(holder, item);
+
+                if (slot < 0 || slot >= this.options.size()) {
+                    plugin.debug(
+                            DebugLevel.HIGHEST,
+                            Level.WARNING,
+                            "Item set to slot " + slot + " for menu: " + this.options.name() + " exceeds the inventory size!",
+                            "This item will not be added to the menu!"
+                    );
+                    continue;
+                }
+
+                if (item.options().viewRequirements().isPresent() && !item.options().viewRequirements().get().evaluate(holder)) {
+                    continue;
+                }
+
+                final Integer activePriority = activePrioritiesBySlot.get(slot);
+                if (activePriority == null || item.options().priority() < activePriority) {
+                    activeItemsBySlot.put(slot, item);
+                    activePrioritiesBySlot.put(slot, item.options().priority());
+                    holder.setItemSlot(item, slot);
+                }
+                break;
+            }
+        }
+
+        return new HashSet<>(activeItemsBySlot.values());
+    }
+
+    private int resolveItemSlot(final @NotNull MenuHolder holder, final @NotNull MenuItem item) {
+        if (item.options().dynamicSlot().isEmpty()) {
+            return item.options().slot();
+        }
+
+        final String parsedSlot = holder.setPlaceholdersAndArguments(item.options().dynamicSlot().get()).trim();
+        try {
+            final int slot = (int) Double.parseDouble(parsedSlot);
+            if (slot >= 0 && slot < this.options.size()) {
+                return slot;
+            }
+
+            plugin.debug(
+                    DebugLevel.MEDIUM,
+                    Level.WARNING,
+                    "Dynamic slot '" + parsedSlot + "' for menu: " + this.options.name() + " is outside the inventory size. Using fallback slot " + item.options().slot() + "."
+            );
+            return item.options().slot();
+        } catch (NumberFormatException exception) {
+            plugin.debug(
+                    DebugLevel.MEDIUM,
+                    Level.WARNING,
+                    "Invalid dynamic slot '" + parsedSlot + "' for menu: " + this.options.name() + ". Using fallback slot " + item.options().slot() + "."
+            );
+            return item.options().slot();
+        }
+    }
+
     public void openMenu(final @NotNull Player viewer) {
         openMenu(viewer, null, null);
     }
@@ -340,38 +405,7 @@ public class Menu {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
 
-            Set<MenuItem> activeItems = new HashSet<>();
-
-            for (Entry<Integer, TreeMap<Integer, MenuItem>> entry : items.entrySet()) {
-
-                for (MenuItem item : entry.getValue().values()) {
-
-                    int slot = item.options().slot();
-
-                    if (slot >= this.options.size()) {
-                        plugin.debug(
-                                DebugLevel.HIGHEST,
-                                Level.WARNING,
-                                "Item set to slot " + slot + " for menu: " + this.options.name() + " exceeds the inventory size!",
-                                "This item will not be added to the menu!"
-                        );
-                        continue;
-                    }
-
-                    if (item.options().viewRequirements().isPresent()) {
-
-                        if (item.options().viewRequirements().get().evaluate(holder)) {
-
-                            activeItems.add(item);
-                            break;
-                        }
-                    } else {
-
-                        activeItems.add(item);
-                        break;
-                    }
-                }
-            }
+            Set<MenuItem> activeItems = this.getActiveItems(holder);
 
             if (activeItems.isEmpty()) {
                 return;
@@ -406,7 +440,7 @@ public class Menu {
 
                 iStack = plugin.getMenuItemMarker().mark(iStack);
 
-                int slot = item.options().slot();
+                int slot = holder.getItemSlot(item);
 
                 if (slot >= this.options.size()) {
                     plugin.debug(
@@ -422,7 +456,7 @@ public class Menu {
                     update = true;
                 }
 
-                inventory.setItem(item.options().slot(), iStack);
+                inventory.setItem(slot, iStack);
             }
 
             final boolean updatePlaceholders = update;

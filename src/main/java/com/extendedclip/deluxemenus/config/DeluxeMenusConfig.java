@@ -572,6 +572,22 @@ public class DeluxeMenusConfig {
         new Menu(plugin, builder.build(), items, path);
     }
 
+    private int getFallbackSlot(final @NotNull FileConfiguration c, final @NotNull String currentPath, final int defaultSlot) {
+        if (c.contains(currentPath + "slot_fallback")) {
+            return c.getInt(currentPath + "slot_fallback", defaultSlot);
+        }
+
+        if (c.contains(currentPath + "slot-fallback")) {
+            return c.getInt(currentPath + "slot-fallback", defaultSlot);
+        }
+
+        if (c.contains(currentPath + "fallback_slot")) {
+            return c.getInt(currentPath + "fallback_slot", defaultSlot);
+        }
+
+        return defaultSlot;
+    }
+
     private Map<Integer, TreeMap<Integer, MenuItem>> loadMenuItems(FileConfiguration c, String name, boolean mainConfig) {
         String itemsPath = "gui_menus." + name + ".items";
 
@@ -609,13 +625,20 @@ public class DeluxeMenusConfig {
 
             checkForDeprecatedItemOptions(c.getConfigurationSection(currentPath), name);
 
+            final boolean hasSlotsList = c.contains(currentPath + "slots") && c.isList(currentPath + "slots");
+            final String configuredSlot = c.getString(currentPath + "slot", null);
+            final Integer configuredStaticSlot = configuredSlot == null ? null : Ints.tryParse(configuredSlot.trim());
+            final int fallbackSlot = getFallbackSlot(c, currentPath, configuredStaticSlot == null ? 0 : configuredStaticSlot);
+            final String dynamicSlot = !hasSlotsList && configuredSlot != null && configuredStaticSlot == null ? configuredSlot : null;
+
             MenuItemOptions.MenuItemOptionsBuilder builder = MenuItemOptions.builder()
                     .material(material)
                     .baseColor(Optional.ofNullable(c.getString(currentPath + "base_color"))
                             .map(String::toUpperCase)
                             .map(DyeColor::valueOf)
                             .orElse(null))
-                    .slot(c.getInt(currentPath + "slot", 0))
+                    .slot(fallbackSlot)
+                    .dynamicSlot(dynamicSlot)
                     .amount(c.getInt(currentPath + "amount", -1))
                     .dynamicAmount(c.getString(currentPath + "dynamic_amount", null))
                     .customModelData(c.getString(currentPath + "model_data", null))
@@ -812,7 +835,7 @@ public class DeluxeMenusConfig {
 
             List<Integer> slots = new ArrayList<>();
 
-            if (c.contains(currentPath + "slots") && c.isList(currentPath + "slots")) {
+            if (hasSlotsList) {
                 List<String> confSlots = c.getStringList(currentPath + "slots");
                 for (String slot : confSlots) {
                     String[] values = slot.split("-", 2);
@@ -825,7 +848,7 @@ public class DeluxeMenusConfig {
                     }
                 }
             } else {
-                slots.add(c.getInt(currentPath + "slot", 0));
+                slots.add(fallbackSlot);
             }
 
             final MenuItem menuItem = new MenuItem(plugin, builder.build());

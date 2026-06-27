@@ -46,3 +46,26 @@ size: 27
 - Старые меню продолжают работать без изменений.
 - `can-esc-close` необязателен.
 - При отсутствии `can-esc-close` поведение остается прежним (закрытие по ESC разрешено).
+
+## 5) Dynamic slot для предметов
+
+Теперь у предмета можно указать placeholder в `slot`, если он возвращает номер слота:
+
+```yml
+items:
+  dynamic_item:
+    material: DIAMOND
+    slot: '%some_slot_placeholder%'
+    slot_fallback: 13
+```
+
+Поддерживаемые fallback-ключи:
+
+```yml
+slot_fallback: 13
+slot-fallback: 13
+fallback_slot: 13
+```
+
+Если placeholder вернул не число или слот за пределами размера меню, будет использован fallback slot.
+Обычные статичные `slot: 10` и `slots:` работают как раньше.

@@ -14,12 +14,11 @@ import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 
 public class MenuHolder implements InventoryHolder {
 
@@ -36,6 +35,7 @@ public class MenuHolder implements InventoryHolder {
     private boolean parsePlaceholdersInArguments;
     private boolean parsePlaceholdersAfterArguments;
     private Map<String, String> typedArgs;
+    private final Map<MenuItem, Integer> resolvedSlots = new HashMap<>();
 
     public MenuHolder(final @NotNull DeluxeMenus plugin, final @NotNull Player viewer) {
         this.plugin = plugin;
@@ -85,11 +85,23 @@ public class MenuHolder implements InventoryHolder {
 
     public MenuItem getItem(int slot) {
         for (MenuItem item : activeItems) {
-            if (item.options().slot() == slot) {
+            if (getItemSlot(item) == slot) {
                 return item;
             }
         }
         return null;
+    }
+
+    public int getItemSlot(final @NotNull MenuItem item) {
+        return this.resolvedSlots.getOrDefault(item, item.options().slot());
+    }
+
+    public void setItemSlot(final @NotNull MenuItem item, final int slot) {
+        this.resolvedSlots.put(item, slot);
+    }
+
+    public void clearItemSlots() {
+        this.resolvedSlots.clear();
     }
 
     public Optional<Menu> getMenu() {
@@ -140,37 +152,7 @@ public class MenuHolder implements InventoryHolder {
 
         Bukkit.getScheduler().runTaskAsynchronously(this.plugin, () -> {
 
-            final Set<MenuItem> active = new HashSet<>();
-
-            for (int i = 0; i < getInventory().getSize(); i++) {
-                TreeMap<Integer, MenuItem> e = menu.getMenuItems().get(i);
-
-                if (e == null) {
-                    getInventory().setItem(i, null);
-                    continue;
-                }
-
-                boolean m = false;
-                for (MenuItem item : e.values()) {
-
-                    if (item.options().viewRequirements().isPresent()) {
-
-                        if (item.options().viewRequirements().get().evaluate(this)) {
-                            m = true;
-                            active.add(item);
-                            break;
-                        }
-                    } else {
-                        m = true;
-                        active.add(item);
-                        break;
-                    }
-                }
-
-                if (!m) {
-                    getInventory().setItem(i, null);
-                }
-            }
+            final Set<MenuItem> active = menu.getActiveItems(this);
 
             if (active.isEmpty()) {
                 Menu.closeMenu(plugin, getViewer(), true);
@@ -180,11 +162,15 @@ public class MenuHolder implements InventoryHolder {
 
                 boolean update = false;
 
+                for (int slot = 0; slot < getInventory().getSize(); slot++) {
+                    getInventory().setItem(slot, null);
+                }
+
                 for (MenuItem item : active) {
 
                     ItemStack iStack = item.getItemStack(this);
 
-                    int slot = item.options().slot();
+                    int slot = getItemSlot(item);
 
                     if (slot >= menu.options().size()) {
                         continue;
@@ -194,7 +180,7 @@ public class MenuHolder implements InventoryHolder {
                         update = true;
                     }
 
-                    getInventory().setItem(item.options().slot(), iStack);
+                    getInventory().setItem(slot, iStack);
                 }
 
                 setActiveItems(active);
@@ -272,7 +258,7 @@ public class MenuHolder implements InventoryHolder {
 
                     if (item.options().updatePlaceholders()) {
 
-                        ItemStack i = inventory.getItem(item.options().slot());
+                        ItemStack i = inventory.getItem(getItemSlot(item));
 
                         if (i == null) {
                             continue;
@@ -288,7 +274,7 @@ public class MenuHolder implements InventoryHolder {
                                 }
                             } catch (Exception exception) {
                                 plugin.printStacktrace(
-                                        "Something went wrong while updating item in slot " + item.options().slot() +
+                                        "Something went wrong while updating item in slot " + getItemSlot(item) +
                                                 ". Invalid dynamic amount: " + setPlaceholdersAndArguments(item.options().dynamicAmount().get()),
                                         exception
                                 );
