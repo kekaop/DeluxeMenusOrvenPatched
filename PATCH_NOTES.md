@@ -69,3 +69,17 @@ fallback_slot: 13
 
 Если placeholder вернул не число или слот за пределами размера меню, будет использован fallback slot.
 Обычные статичные `slot: 10` и `slots:` работают как раньше.
+
+## 6) Minecraft / Spigot API target
+
+Build target updated to:
+
+```text
+org.spigotmc:spigot-api:26.1.2-R0.1-SNAPSHOT
+```
+
+The official Spigot snapshots repository was added to Gradle:
+
+```text
+https://hub.spigotmc.org/nexus/content/repositories/snapshots/
+```
