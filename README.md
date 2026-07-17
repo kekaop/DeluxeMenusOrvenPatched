@@ -40,51 +40,113 @@ If you would like to contribute towards DeluxeMenus should you take a look at ou
 - [Spigot Page][spigot]
 - [Plugin Statistics][bstats]
 
-# DeluxeMenus Patched - Краткая документация изменений
+# Patched Build Notes
 
-## 1) Новый параметр меню: `can-esc-close`
+This fork contains the upstream DeluxeMenus code plus custom patches for Orven's build.
 
-Добавлен новый параметр в конфиг меню:
+## Minecraft / Spigot Target
+
+The patched build targets:
+
+```text
+org.spigotmc:spigot-api:26.1.2-R0.1-SNAPSHOT
+```
+
+The official Spigot snapshots repository is included in Gradle:
+
+```text
+https://hub.spigotmc.org/nexus/content/repositories/snapshots/
+```
+
+The code was also checked against `spigot-api:1.21.11-R0.1-SNAPSHOT` and compiled successfully.
+
+## Menu Close Control
+
+Menus support a new optional root setting:
 
 ```yml
 can-esc-close: true
 ```
 
-- По умолчанию: `true` (если параметр не указан).
-- Если `false`: при попытке игрока закрыть меню через `ESC` (или закрытие инвентаря игроком) меню сразу открывается снова.
+Behavior:
 
-Пример:
+- Default: `true`.
+- If omitted, menus keep the original behavior.
+- If set to `false`, a player closing the menu manually with ESC or inventory close will have the menu opened again immediately.
+
+Example:
 
 ```yml
-menu_title: '&6Главное меню'
+menu_title: '&6Main Menu'
 open_command: menu
 can-esc-close: false
 size: 27
 ```
 
-## 2) Изменено поведение `close_commands`
+## Close Commands On Manual Close
 
-Раньше `close_commands` надежно отрабатывали в основном при действиях типа `[close]`.
-Теперь `close_commands` также выполняются, когда игрок закрывает меню вручную (ESC/закрытие инвентаря).
+`close_commands` now run when the player manually closes the menu, not only when a menu item executes `[close]`.
 
-Итог:
-- `[close]` -> `close_commands` выполняются.
-- Ручное закрытие меню игроком -> `close_commands` тоже выполняются.
+This applies to:
 
-## 3) Новый action: `[title]`
+- menu items using `[close]`
+- manual player close through ESC / inventory close
 
-Добавлен новый action для смены заголовка открытого меню во время работы:
+## Dynamic Title Action
+
+A new action is available:
 
 ```yml
-- '[title] &eНовый заголовок'
+- '[title] &eNew menu title'
 ```
 
-Что делает:
-- Пытается динамически сменить title через `InventoryView#setTitle(...)`.
-- Если серверная реализация не поддерживает динамическую смену для конкретного окна, используется fallback с переоткрытием меню с новым title.
+It changes the title of the currently open DeluxeMenus inventory.
 
-## 4) Совместимость
+Implementation behavior:
 
-- Старые меню продолжают работать без изменений.
-- `can-esc-close` необязателен.
-- При отсутствии `can-esc-close` поведение остается прежним (закрытие по ESC разрешено).
+- First attempts to update the title dynamically through `InventoryView#setTitle(...)`.
+- Falls back to reopening the inventory with the new title if the server implementation does not support direct title updates for that inventory view.
+
+## Dynamic Item Slots
+
+Menu items can now use a placeholder as their `slot` value when that placeholder returns a number:
+
+```yml
+items:
+  dynamic_item:
+    material: DIAMOND
+    slot: '%some_slot_placeholder%'
+    slot_fallback: 13
+```
+
+Supported fallback keys:
+
+```yml
+slot_fallback: 13
+slot-fallback: 13
+fallback_slot: 13
+```
+
+Behavior:
+
+- Static `slot: 10` still works as before.
+- Existing `slots:` lists and ranges still work as before.
+- Dynamic `slot: '%placeholder%'` is resolved per player when the menu opens or refreshes.
+- If the placeholder returns a non-number or a slot outside the menu size, the fallback slot is used.
+- Click handling uses the resolved dynamic slot, not only the fallback slot.
+
+## Build Output
+
+The patched jar is built with:
+
+```powershell
+.\gradlew.bat clean shadowJar
+```
+
+Common local artifact names:
+
+```text
+build/libs/DeluxeMenus-1.14.2-DEV-null.jar
+build/libs/DeluxeMenus-1.14.2-ORV-patched.jar
+build/libs/DeluxeMenus-1.14.2-ORV-patched-MC-26.1.2.jar
+```
