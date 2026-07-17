@@ -170,6 +170,12 @@ public class MenuHolder implements InventoryHolder {
 
                     ItemStack iStack = item.getItemStack(this);
 
+                    if (iStack == null) {
+                        continue;
+                    }
+
+                    iStack = plugin.getMenuItemMarker().mark(iStack);
+
                     int slot = getItemSlot(item);
 
                     if (slot >= menu.options().size()) {
