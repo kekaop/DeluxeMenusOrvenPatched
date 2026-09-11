@@ -105,34 +105,3 @@ The following events are available in `com.orven.deluxemenus.api.v1.event`:
 `OpenReason` values include `API`, `COMMAND`, `MENU_ACTION`, and `UNKNOWN`. `CloseReason` includes `MANUAL`, `COMMAND`, `REPLACING_MENU`, `PLAYER_QUIT`, `SERVER_SHUTDOWN`, `API`, and `UNKNOWN`.
 
 The existing `DeluxeMenusPreOpenMenuEvent` and `DeluxeMenusOpenMenuEvent` remain available for compatibility.
-
-## Ashfall example
-
-```java
-private DeluxeMenusApi deluxeMenus;
-
-public void hookDeluxeMenus() {
-    RegisteredServiceProvider<DeluxeMenusApi> registration =
-            Bukkit.getServicesManager().getRegistration(DeluxeMenusApi.class);
-    deluxeMenus = registration == null ? null : registration.getProvider();
-}
-
-public void openShop(Player player, ItemStack foxEars) {
-    if (deluxeMenus == null) {
-        return;
-    }
-
-    MenuSession session = deluxeMenus.openMenu(player, "ashfall_shop");
-    session.setItem(13, foxEars, "shop.buy.fox_ears");
-    session.setTitle("<gold>Ashfall Shop</gold>");
-}
-```
-
-## Compatibility and limitations
-
-- The target compile API is `spigot-api:1.21.11-R0.1-SNAPSHOT`.
-- Existing YAML menus, PlaceholderAPI placeholders, requirements, click commands, `can-esc-close`, manual-close `close_commands`, dynamic `[title]`, and dynamic slots remain supported.
-- Inventory mutations are main-thread-only.
-- A session is invalid after its menu closes or the player disconnects; methods that require an open session throw `IllegalStateException`.
-- The API does not parse business data or custom item formats. Create the final `ItemStack` in the integration plugin and pass it to `setItem`.
-- The API does not keep an independent strong player registry; sessions are tied to the active DeluxeMenus holder and are removed on close or quit.
