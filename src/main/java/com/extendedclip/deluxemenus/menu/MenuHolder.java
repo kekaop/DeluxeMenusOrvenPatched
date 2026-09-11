@@ -36,6 +36,7 @@ public class MenuHolder implements InventoryHolder {
     private boolean parsePlaceholdersAfterArguments;
     private Map<String, String> typedArgs;
     private final Map<MenuItem, Integer> resolvedSlots = new HashMap<>();
+    private final Map<Integer, ApiSlot> apiSlots = new HashMap<>();
 
     public MenuHolder(final @NotNull DeluxeMenus plugin, final @NotNull Player viewer) {
         this.plugin = plugin;
@@ -102,6 +103,58 @@ public class MenuHolder implements InventoryHolder {
 
     public void clearItemSlots() {
         this.resolvedSlots.clear();
+    }
+
+    public boolean hasApiSlot(final int slot) {
+        return apiSlots.containsKey(slot);
+    }
+
+    public Optional<ApiSlot> getApiSlot(final int slot) {
+        return Optional.ofNullable(apiSlots.get(slot));
+    }
+
+    public void setApiItem(final int slot, final ItemStack item, final String actionId) {
+        final ItemStack copy = item.clone();
+        apiSlots.put(slot, new ApiSlot(copy, actionId));
+        if (inventory != null) {
+            inventory.setItem(slot, plugin.getMenuItemMarker().mark(copy.clone()));
+        }
+    }
+
+    public void removeApiItem(final int slot) {
+        apiSlots.put(slot, new ApiSlot(null, null));
+        if (inventory != null) {
+            inventory.setItem(slot, null);
+        }
+    }
+
+    public void applyApiSlots() {
+        if (inventory == null) {
+            return;
+        }
+
+        apiSlots.forEach((slot, apiSlot) -> {
+            final ItemStack item = apiSlot.getItem();
+            inventory.setItem(slot, item == null ? null : plugin.getMenuItemMarker().mark(item));
+        });
+    }
+
+    public static final class ApiSlot {
+        private final ItemStack item;
+        private final String actionId;
+
+        private ApiSlot(final ItemStack item, final String actionId) {
+            this.item = item;
+            this.actionId = actionId;
+        }
+
+        public ItemStack getItem() {
+            return item == null ? null : item.clone();
+        }
+
+        public String getActionId() {
+            return actionId;
+        }
     }
 
     public Optional<Menu> getMenu() {
@@ -188,6 +241,8 @@ public class MenuHolder implements InventoryHolder {
 
                     getInventory().setItem(slot, iStack);
                 }
+
+                applyApiSlots();
 
                 setActiveItems(active);
 

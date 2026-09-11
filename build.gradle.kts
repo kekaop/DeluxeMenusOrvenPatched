@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.nashorn)
     implementation(libs.adventure.platform)
     implementation(libs.adventure.minimessage)
+    implementation(libs.adventure.legacy)
     implementation(libs.bstats)
 
     compileOnly("org.jetbrains:annotations:23.0.0")
@@ -56,7 +57,6 @@ tasks {
     shadowJar {
         relocate("org.objectweb.asm", "com.extendedclip.deluxemenus.libs.asm")
         relocate("org.openjdk.nashorn", "com.extendedclip.deluxemenus.libs.nashorn")
-        relocate("net.kyori", "com.extendedclip.deluxemenus.libs.adventure")
         relocate("org.bstats", "com.extendedclip.deluxemenus.libs.bstats")
         archiveFileName.set("DeluxeMenus-${rootProject.version}.jar")
     }

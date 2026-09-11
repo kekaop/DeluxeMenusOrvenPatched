@@ -2,10 +2,13 @@ package com.extendedclip.deluxemenus.listener;
 
 import com.extendedclip.deluxemenus.DeluxeMenus;
 import com.extendedclip.deluxemenus.action.ClickHandler;
+import com.extendedclip.deluxemenus.api.MenuSessionImpl;
 import com.extendedclip.deluxemenus.menu.Menu;
 import com.extendedclip.deluxemenus.menu.MenuHolder;
 import com.extendedclip.deluxemenus.menu.MenuItem;
 import com.extendedclip.deluxemenus.requirement.RequirementList;
+import com.orven.deluxemenus.api.v1.CloseReason;
+import com.orven.deluxemenus.api.v1.event.MenuClickEvent;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.bukkit.Bukkit;
@@ -63,7 +66,7 @@ public class PlayerListener extends Listener {
         Player player = event.getPlayer();
 
         if (Menu.isInMenu(player)) {
-            Menu.closeMenu(plugin, player, false);
+            Menu.closeMenu(plugin, player, false, false, CloseReason.PLAYER_QUIT);
         }
     }
 
@@ -80,7 +83,7 @@ public class PlayerListener extends Listener {
         }
 
         if (Menu.isInMenu(player)) {
-            Menu.closeMenu(plugin, player, true);
+            Menu.closeMenu(plugin, player, true, false, CloseReason.REPLACING_MENU);
         }
     }
 
@@ -102,7 +105,7 @@ public class PlayerListener extends Listener {
         final Optional<Menu> optionalMenu = holder.getMenu();
 
         if (optionalMenu.isEmpty()) {
-            Menu.closeMenu(plugin, player, false);
+            Menu.closeMenu(plugin, player, false, false, CloseReason.UNKNOWN);
             return;
         }
 
@@ -111,7 +114,7 @@ public class PlayerListener extends Listener {
             final Map<String, String> typedArgs = holder.getTypedArgs() == null ? null : new HashMap<>(holder.getTypedArgs());
             final Player placeholderPlayer = holder.getPlaceholderPlayer();
 
-            Menu.closeMenu(plugin, player, false);
+            Menu.closeMenu(plugin, player, false, false, CloseReason.MANUAL);
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (!player.isOnline() || player.isDead()) {
@@ -123,7 +126,7 @@ public class PlayerListener extends Listener {
             return;
         }
 
-        Menu.closeMenu(plugin, player, false, true);
+        Menu.closeMenu(plugin, player, false, true, CloseReason.MANUAL);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Menu.cleanInventory(plugin, player);
             player.updateInventory();
@@ -158,14 +161,6 @@ public class PlayerListener extends Listener {
 
         event.setCancelled(true);
 
-        int slot = event.getRawSlot();
-
-        MenuItem item = holder.getItem(slot);
-
-        if (item == null) {
-            return;
-        }
-
         if (this.cache.getIfPresent(player.getUniqueId()) != null) {
             return;
         }
@@ -176,6 +171,53 @@ public class PlayerListener extends Listener {
 
         if (event.getClick() == ClickType.DOUBLE_CLICK) {
             return;
+        }
+
+        int slot = event.getRawSlot();
+        if (slot < 0 || slot >= holder.getInventory().getSize()) {
+            return;
+        }
+
+        if (holder.hasApiSlot(slot)) {
+            final MenuHolder.ApiSlot apiSlot = holder.getApiSlot(slot).orElse(null);
+            final org.bukkit.inventory.ItemStack apiItem = apiSlot == null ? null : apiSlot.getItem();
+            if (apiItem == null) {
+                return;
+            }
+
+            final MenuClickEvent apiClick = new MenuClickEvent(
+                    player,
+                    new MenuSessionImpl(plugin, holder),
+                    slot,
+                    event.getClick(),
+                    apiItem,
+                    apiSlot.getActionId()
+            );
+            Bukkit.getPluginManager().callEvent(apiClick);
+            this.cache.put(player.getUniqueId(), System.currentTimeMillis());
+            return;
+        }
+
+        MenuItem item = holder.getItem(slot);
+
+        if (item == null) {
+            return;
+        }
+
+        final org.bukkit.inventory.ItemStack clickedItem = event.getCurrentItem();
+        if (clickedItem != null) {
+            final MenuClickEvent menuClick = new MenuClickEvent(
+                    player,
+                    new MenuSessionImpl(plugin, holder),
+                    slot,
+                    event.getClick(),
+                    clickedItem,
+                    null
+            );
+            Bukkit.getPluginManager().callEvent(menuClick);
+            if (menuClick.isCancelled()) {
+                return;
+            }
         }
 
         if (event.getClick() == ClickType.SHIFT_LEFT) {

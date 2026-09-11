@@ -2,6 +2,7 @@ package com.extendedclip.deluxemenus.action;
 
 import com.extendedclip.deluxemenus.DeluxeMenus;
 import com.extendedclip.deluxemenus.menu.Menu;
+import com.orven.deluxemenus.api.v1.CloseReason;
 import com.extendedclip.deluxemenus.menu.MenuHolder;
 import com.extendedclip.deluxemenus.persistentmeta.PersistentMetaHandler;
 import com.extendedclip.deluxemenus.utils.*;
@@ -153,7 +154,7 @@ public class ClickActionTask extends BukkitRunnable {
                 break;
 
             case CLOSE:
-                Menu.closeMenu(plugin, player, true, true);
+                Menu.closeMenu(plugin, player, true, true, CloseReason.COMMAND);
                 break;
 
             case OPEN_GUI_MENU:

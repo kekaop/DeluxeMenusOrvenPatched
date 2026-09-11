@@ -1,6 +1,7 @@
 package com.extendedclip.deluxemenus;
 
 import com.extendedclip.deluxemenus.cache.SimpleCache;
+import com.extendedclip.deluxemenus.api.DeluxeMenusApiImpl;
 import com.extendedclip.deluxemenus.command.DeluxeMenusCommand;
 import com.extendedclip.deluxemenus.config.DeluxeMenusConfig;
 import com.extendedclip.deluxemenus.config.GeneralConfig;
@@ -19,6 +20,7 @@ import com.extendedclip.deluxemenus.updatechecker.UpdateChecker;
 import com.extendedclip.deluxemenus.utils.DebugLevel;
 import com.extendedclip.deluxemenus.utils.Messages;
 import com.extendedclip.deluxemenus.utils.VersionHelper;
+import com.orven.deluxemenus.api.v1.DeluxeMenusApi;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
@@ -33,6 +35,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.ServicePriority;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -58,6 +61,7 @@ public class DeluxeMenus extends JavaPlugin {
 
     private final GeneralConfig generalConfig = new GeneralConfig(this);
     private DeluxeMenusConfig menuConfig;
+    private DeluxeMenusApi api;
 
     @Override
     public void onLoad() {
@@ -98,6 +102,9 @@ public class DeluxeMenus extends JavaPlugin {
             debug(DebugLevel.HIGHEST, Level.WARNING, "Failed to load from config.yml. Use /dm reload after fixing your errors.");
         }
 
+        this.api = new DeluxeMenusApiImpl(this);
+        Bukkit.getServicesManager().register(DeluxeMenusApi.class, this.api, this, ServicePriority.Normal);
+
         new PlayerListener(this).register();
         if (!new DeluxeMenusCommand(this).register()) {
             debug(DebugLevel.HIGHEST, Level.SEVERE, "Could not register the DeluxeMenus command!");
@@ -121,6 +128,9 @@ public class DeluxeMenus extends JavaPlugin {
         }
 
         Menu.unloadForShutdown(this);
+
+        Bukkit.getServicesManager().unregister(DeluxeMenusApi.class, this.api);
+        this.api = null;
 
         itemHooks.clear();
 
@@ -188,6 +198,10 @@ public class DeluxeMenus extends JavaPlugin {
 
     public DeluxeMenusConfig getConfiguration() {
         return menuConfig;
+    }
+
+    public DeluxeMenusApi getApi() {
+        return api;
     }
 
     public VaultHook getVault() {

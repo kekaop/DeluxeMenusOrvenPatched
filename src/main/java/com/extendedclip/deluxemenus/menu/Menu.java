@@ -2,6 +2,7 @@ package com.extendedclip.deluxemenus.menu;
 
 import com.extendedclip.deluxemenus.DeluxeMenus;
 import com.extendedclip.deluxemenus.action.ClickHandler;
+import com.extendedclip.deluxemenus.api.MenuSessionImpl;
 import com.extendedclip.deluxemenus.dupe.MenuItemMarker;
 import com.extendedclip.deluxemenus.events.DeluxeMenusOpenMenuEvent;
 import com.extendedclip.deluxemenus.events.DeluxeMenusPreOpenMenuEvent;
@@ -10,6 +11,11 @@ import com.extendedclip.deluxemenus.menu.options.MenuOptions;
 import com.extendedclip.deluxemenus.requirement.RequirementList;
 import com.extendedclip.deluxemenus.utils.DebugLevel;
 import com.extendedclip.deluxemenus.utils.StringUtils;
+import com.orven.deluxemenus.api.v1.CloseReason;
+import com.orven.deluxemenus.api.v1.OpenReason;
+import com.orven.deluxemenus.api.v1.event.MenuCloseEvent;
+import com.orven.deluxemenus.api.v1.event.MenuOpenEvent;
+import com.orven.deluxemenus.api.v1.event.MenuPreOpenEvent;
 
 import java.util.*;
 import java.util.Map.Entry;
@@ -184,6 +190,11 @@ public class Menu {
     }
 
     public static void closeMenu(final @NotNull DeluxeMenus plugin, final @NotNull Player player, final boolean close, final boolean executeCloseActions) {
+        closeMenu(plugin, player, close, executeCloseActions, CloseReason.UNKNOWN);
+    }
+
+    public static void closeMenu(final @NotNull DeluxeMenus plugin, final @NotNull Player player, final boolean close,
+                                 final boolean executeCloseActions, final @NotNull CloseReason reason) {
         Optional<MenuHolder> optionalHolder = getMenuHolder(player);
         if (optionalHolder.isEmpty()) {
             return;
@@ -198,19 +209,23 @@ public class Menu {
             holder.getMenu().map(Menu::options).map(MenuOptions::closeHandler).flatMap(h -> h).ifPresent(h -> h.onClick(holder));
         }
 
+        menuHolders.remove(holder);
+        lastOpenedMenus.put(player.getUniqueId(), holder.getMenu().orElse(null));
+
+        holder.getMenu().ifPresent(menu -> Bukkit.getPluginManager().callEvent(
+                new MenuCloseEvent(player, new MenuSessionImpl(plugin, holder), menu.options().name(), reason)
+        ));
+
         if (close) {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 player.closeInventory();
                 cleanInventory(plugin, player);
             });
         }
-        menuHolders.remove(holder);
-        lastOpenedMenus.put(player.getUniqueId(), holder.getMenu().orElse(null));
     }
 
     public static void closeMenuForShutdown(final @NotNull DeluxeMenus plugin, final @NotNull Player player) {
-        getMenuHolder(player).ifPresent(MenuHolder::stopPlaceholderUpdate);
-
+        closeMenu(plugin, player, false, false, CloseReason.SERVER_SHUTDOWN);
         player.closeInventory();
         cleanInventory(plugin, player);
     }
@@ -226,13 +241,27 @@ public class Menu {
         }
 
         final MenuHolder holder = optionalHolder.get();
+        changeOpenMenuTitle(player, holder.setPlaceholdersAndArguments(title), false);
+    }
+
+    public static void changeOpenMenuTitleRaw(final @NotNull Player player, final @NotNull String title) {
+        changeOpenMenuTitle(player, title, true);
+    }
+
+    private static void changeOpenMenuTitle(final @NotNull Player player, final @NotNull String title, final boolean raw) {
+        final Optional<MenuHolder> optionalHolder = getMenuHolder(player);
+        if (optionalHolder.isEmpty()) {
+            return;
+        }
+
+        final MenuHolder holder = optionalHolder.get();
         final Optional<Menu> optionalMenu = holder.getMenu();
         if (optionalMenu.isEmpty()) {
             return;
         }
 
         final Menu menu = optionalMenu.get();
-        final String parsedTitle = StringUtils.color(holder.setPlaceholdersAndArguments(title));
+        final String parsedTitle = raw ? title : StringUtils.color(title);
 
         try {
             player.getOpenInventory().setTitle(parsedTitle);
@@ -243,6 +272,7 @@ public class Menu {
         }
 
         final Inventory oldInventory = holder.getInventory();
+        final ItemStack oldCursor = player.getOpenInventory().getCursor();
 
         final Inventory newInventory;
         if (menu.options().type() != InventoryType.CHEST) {
@@ -260,6 +290,7 @@ public class Menu {
 
         menuHolders.remove(holder);
         player.openInventory(newInventory);
+        player.getOpenInventory().setCursor(oldCursor);
         menuHolders.add(holder);
     }
 
@@ -383,9 +414,13 @@ public class Menu {
         }
 
         DeluxeMenusPreOpenMenuEvent preOpenEvent = new DeluxeMenusPreOpenMenuEvent(viewer);
-    Bukkit.getPluginManager().callEvent(preOpenEvent);
+        Bukkit.getPluginManager().callEvent(preOpenEvent);
 
-    if (preOpenEvent.isCancelled()) return;
+        if (preOpenEvent.isCancelled()) return;
+
+        final MenuPreOpenEvent apiPreOpenEvent = new MenuPreOpenEvent(viewer, this.options.name(), OpenReason.UNKNOWN);
+        Bukkit.getPluginManager().callEvent(apiPreOpenEvent);
+        if (apiPreOpenEvent.isCancelled()) return;
 
     final MenuHolder holder = new MenuHolder(plugin, viewer);
         if (placeholderPlayer != null) {
@@ -467,11 +502,13 @@ public class Menu {
                 }
 
                 if (isInMenu(holder.getViewer())) {
-                    closeMenu(plugin, holder.getViewer(), false);
+                    closeMenu(plugin, holder.getViewer(), false, false, CloseReason.REPLACING_MENU);
                 }
 
                 viewer.openInventory(inventory);
                 menuHolders.add(holder);
+
+                Bukkit.getPluginManager().callEvent(new MenuOpenEvent(viewer, new MenuSessionImpl(plugin, holder), this.options.name()));
 
         if (updatePlaceholders) {
           holder.startUpdatePlaceholdersTask();
@@ -484,6 +521,78 @@ public class Menu {
       });
     });
   }
+
+    /**
+     * Opens a menu synchronously for integrations that need a live session immediately.
+     * This method must only be called on the Bukkit main thread.
+     */
+    public @NotNull MenuHolder openMenuForApi(final @NotNull Player viewer) {
+        if (!Bukkit.isPrimaryThread()) {
+            throw new IllegalStateException("DeluxeMenus API must be called from the Bukkit main thread.");
+        }
+        if (items == null || items.isEmpty()) {
+            throw new com.orven.deluxemenus.api.v1.MenuOpenException("Menu has no configured items: " + options.name());
+        }
+
+        final DeluxeMenusPreOpenMenuEvent legacyPreOpen = new DeluxeMenusPreOpenMenuEvent(viewer);
+        Bukkit.getPluginManager().callEvent(legacyPreOpen);
+        if (legacyPreOpen.isCancelled()) {
+            throw new com.orven.deluxemenus.api.v1.MenuOpenException("Menu opening was cancelled by DeluxeMenusPreOpenMenuEvent.");
+        }
+
+        final MenuPreOpenEvent preOpen = new MenuPreOpenEvent(viewer, options.name(), OpenReason.API);
+        Bukkit.getPluginManager().callEvent(preOpen);
+        if (preOpen.isCancelled()) {
+            throw new com.orven.deluxemenus.api.v1.MenuOpenException("Menu opening was cancelled by MenuPreOpenEvent.");
+        }
+
+        final MenuHolder holder = new MenuHolder(plugin, viewer);
+        holder.setMenuName(options.name());
+        holder.setTypedArgs(null);
+        holder.parsePlaceholdersInArguments(options.parsePlaceholdersInArguments());
+        holder.parsePlaceholdersAfterArguments(options.parsePlaceholdersAfterArguments());
+
+        if (!handleArgRequirements(holder) || !handleOpenRequirements(holder)) {
+            throw new com.orven.deluxemenus.api.v1.MenuOpenException("Open requirements were not met for menu: " + options.name());
+        }
+
+        final Set<MenuItem> activeItems = getActiveItems(holder);
+        if (activeItems.isEmpty()) {
+            throw new com.orven.deluxemenus.api.v1.MenuOpenException("No items are available for menu: " + options.name());
+        }
+        holder.setActiveItems(activeItems);
+        options.openHandler().ifPresent(h -> h.onClick(holder));
+
+        final String title = StringUtils.color(holder.setPlaceholdersAndArguments(options.title()));
+        final Inventory inventory = options.type() != InventoryType.CHEST
+                ? Bukkit.createInventory(holder, options.type(), title)
+                : Bukkit.createInventory(holder, options.size(), title);
+        holder.setInventory(inventory);
+
+        boolean updatePlaceholders = false;
+        for (MenuItem item : activeItems) {
+            ItemStack itemStack = item.getItemStack(holder);
+            if (itemStack == null) continue;
+
+            final int slot = holder.getItemSlot(item);
+            if (slot < 0 || slot >= inventory.getSize()) continue;
+            if (item.options().updatePlaceholders()) updatePlaceholders = true;
+            inventory.setItem(slot, plugin.getMenuItemMarker().mark(itemStack));
+        }
+
+        if (isInMenu(viewer)) {
+            closeMenu(plugin, viewer, false, false, CloseReason.REPLACING_MENU);
+        }
+        viewer.openInventory(inventory);
+        menuHolders.add(holder);
+        if (options.refresh()) holder.startRefreshTask();
+        if (updatePlaceholders) holder.startUpdatePlaceholdersTask();
+
+        final MenuSessionImpl session = new MenuSessionImpl(plugin, holder);
+        Bukkit.getPluginManager().callEvent(new DeluxeMenusOpenMenuEvent(viewer, holder));
+        Bukkit.getPluginManager().callEvent(new MenuOpenEvent(viewer, session, options.name()));
+        return holder;
+    }
 
     public void refreshForAll() {
         menuHolders.stream().filter(menuHolder -> menuHolder.getMenuName().equalsIgnoreCase(options.name())).forEach(MenuHolder::refreshMenu);

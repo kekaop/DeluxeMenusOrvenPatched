@@ -49,7 +49,7 @@ This fork contains the upstream DeluxeMenus code plus custom patches for Orven's
 The patched build targets:
 
 ```text
-org.spigotmc:spigot-api:26.1.2-R0.1-SNAPSHOT
+org.spigotmc:spigot-api:1.21.11-R0.1-SNAPSHOT
 ```
 
 The official Spigot snapshots repository is included in Gradle:
@@ -58,7 +58,21 @@ The official Spigot snapshots repository is included in Gradle:
 https://hub.spigotmc.org/nexus/content/repositories/snapshots/
 ```
 
-The code was also checked against `spigot-api:1.21.11-R0.1-SNAPSHOT` and compiled successfully.
+The target API is `spigot-api:1.21.11-R0.1-SNAPSHOT`.
+
+## Integration API
+
+The fork exposes a versioned Java API through Bukkit's Services Manager. See [API.md](API.md) for the complete reference and Ashfall integration examples.
+
+```java
+RegisteredServiceProvider<DeluxeMenusApi> registration =
+        Bukkit.getServicesManager().getRegistration(DeluxeMenusApi.class);
+if (registration != null) {
+    DeluxeMenusApi api = registration.getProvider();
+    MenuSession session = api.openMenu(player, "ashfall_shop");
+    session.setTitle("<gold>Ashfall Shop</gold>");
+}
+```
 
 ## Menu Close Control
 
@@ -143,10 +157,8 @@ The patched jar is built with:
 .\gradlew.bat clean shadowJar
 ```
 
-Common local artifact names:
+The current local artifact is:
 
 ```text
 build/libs/DeluxeMenus-1.14.2-DEV-null.jar
-build/libs/DeluxeMenus-1.14.2-ORV-patched.jar
-build/libs/DeluxeMenus-1.14.2-ORV-patched-MC-26.1.2.jar
 ```
